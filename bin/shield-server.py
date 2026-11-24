@@ -294,6 +294,7 @@ def _inspect_conversation(conv_dir: Path, now: float) -> Optional[Dict[str, Any]
     step_count = 0
     last_status = "DONE"
     last_type = ""
+    last_has_tool_calls = False
     last_ts = mtime
 
     for entry in entries:
@@ -307,6 +308,7 @@ def _inspect_conversation(conv_dir: Path, now: float) -> Optional[Dict[str, Any]
             last_status = estatus
         if etype:
             last_type = etype
+        last_has_tool_calls = bool(entry.get("tool_calls"))
 
         ets = _parse_iso_ts(entry.get("created_at"))
         if ets:
@@ -377,10 +379,15 @@ def _inspect_conversation(conv_dir: Path, now: float) -> Optional[Dict[str, Any]
 
     age_seconds = max(0.0, now - mtime)
 
-    # Determine agent state
+    # Determine agent state accurately
     if last_status == "ERROR":
         state = "ERROR"
-    elif last_status not in ("DONE", "COMPLETED", "CANCELLED") or age_seconds <= 45:
+    elif last_status not in ("DONE", "COMPLETED", "CANCELLED"):
+        state = "ACTIVE"
+    elif last_type == "PLANNER_RESPONSE" and not last_has_tool_calls:
+        # Agent finished its turn and replied to the user
+        state = "IDLE"
+    elif age_seconds <= 45:
         state = "ACTIVE"
     elif age_seconds <= 900:
         state = "STANDBY"
