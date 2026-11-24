@@ -95,34 +95,60 @@ def _extract_project_from_path(raw_path: str) -> Optional[str]:
     return None
 
 
-def _find_github_url(project_path: str) -> str:
-    if not project_path:
-        return ""
+def _read_git_config_github(git_cfg: Path) -> str:
     try:
-        cur = Path(project_path)
-        if cur.is_file():
-            cur = cur.parent
+        text = git_cfg.read_text(encoding="utf-8", errors="replace")
+        m = re.search(r'\[remote\s+"origin"\][^\[]*?url\s*=\s*(\S+)', text, re.DOTALL)
+        if not m:
+            m = re.search(r'url\s*=\s*(\S*github\.com\S+)', text)
+        if m:
+            raw = m.group(1).strip()
+            if raw.startswith("git@github.com:"):
+                raw = "https://github.com/" + raw[len("git@github.com:"):]
+            elif raw.startswith("ssh://git@github.com/"):
+                raw = "https://github.com/" + raw[len("ssh://git@github.com/"):]
+            if "github.com/" in raw:
+                if raw.endswith(".git"):
+                    raw = raw[:-4]
+                return raw
+    except Exception:
+        pass
+    return ""
+
+
+def _find_github_url(project_path: str, project_name: str = "") -> str:
+    candidates: List[Path] = []
+    if project_path:
+        p = Path(project_path)
+        if p.exists():
+            candidates.append(p if p.is_dir() else p.parent)
+
+    # Also check mounted volumes if the path doesn't exist locally (e.g. moved to external drive)
+    if not candidates and project_name and not project_name.startswith("plugin:"):
+        volumes = Path("/Volumes")
+        if volumes.is_dir():
+            try:
+                for vol in volumes.iterdir():
+                    if not vol.is_dir() or vol.name.startswith("."):
+                        continue
+                    for sub in (vol / project_name, vol / "Projects" / project_name, vol / "Code" / project_name):
+                        if sub.is_dir():
+                            candidates.append(sub)
+            except Exception:
+                pass
+
+    for start in candidates:
+        cur = start
         for _ in range(6):
             git_cfg = cur / ".git" / "config"
             if git_cfg.is_file():
-                text = git_cfg.read_text(encoding="utf-8", errors="replace")
-                m = re.search(r'\[remote\s+"origin"\][^\[]*?url\s*=\s*(\S+)', text, re.DOTALL)
-                if m:
-                    raw = m.group(1).strip()
-                    if raw.startswith("git@github.com:"):
-                        raw = "https://github.com/" + raw[len("git@github.com:"):]
-                    elif raw.startswith("ssh://git@github.com/"):
-                        raw = "https://github.com/" + raw[len("ssh://git@github.com/"):]
-                    if "github.com/" in raw:
-                        if raw.endswith(".git"):
-                            raw = raw[:-4]
-                        return raw
-                return ""
+                url = _read_git_config_github(git_cfg)
+                if url:
+                    return url
+                break
             if cur.parent == cur:
                 break
             cur = cur.parent
-    except Exception:
-        pass
     return ""
 
 
@@ -379,7 +405,7 @@ def _inspect_conversation(conv_dir: Path, now: float) -> Optional[Dict[str, Any]
     except Exception:
         pass
 
-    github_url = _find_github_url(project_path)
+    github_url = _find_github_url(project_path, project_name)
     actions_url = f"{github_url}/actions" if github_url else ""
     actions_running = _check_github_actions_running(github_url) if github_url else False
 
