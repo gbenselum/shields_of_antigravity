@@ -1,0 +1,5 @@
+ui/node_modules/
+shield.log
+__pycache__/
+*.pyc
+.DS_Store

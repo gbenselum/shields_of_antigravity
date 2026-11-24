@@ -1,0 +1,12 @@
+{
+  "name": "shield",
+  "displayName": "S.H.I.E.L.D.",
+  "version": "1.0.0",
+  "description": "Visual operations dashboard in the left sidebar that monitors all running Antigravity agents, their projects, live states, and current tasks.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Open S.H.I.E.L.D. to inspect all running agents",
+    "Show me only currently active agents in S.H.I.E.L.D.",
+    "Check which projects have agents running right now"
+  ]
+}
