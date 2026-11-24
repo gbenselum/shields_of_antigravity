@@ -86,6 +86,13 @@ def _extract_project_from_path(raw_path: str) -> Optional[str]:
             pass
         return None
 
+    # Mounted macOS volumes: /Volumes/<volume>/<project>/... or /Volumes/<volume>/Projects/<project>/...
+    if len(parts) >= 3 and parts[0] == "Volumes":
+        if len(parts) >= 4 and parts[2] in ("Projects", "Code", "Developer", "Workspace", "Work", "src", "repos", "dev"):
+            return parts[3]
+        if parts[2] not in IGNORED_PATH_PARTS and not parts[2].startswith("."):
+            return parts[2]
+
     # Common macOS/Linux user workspace patterns: /Users/<user>/<dir>/<project>/...
     if len(parts) >= 4 and parts[0] in ("Users", "home"):
         if parts[2] in ("Desktop", "Documents", "Projects", "Code", "Developer", "Workspace", "Work", "src", "repos", "dev"):
